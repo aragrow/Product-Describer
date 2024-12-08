@@ -1,0 +1,69 @@
+import os
+import urllib.request
+from flask import Flask, request, jsonify
+from PIL import Image
+import google.generativeai as genai
+import requests
+from urllib.parse import urlparse
+import sys
+
+#curl -X POST http://127.0.0.1:5000/describe-image -F "image=http://localhost:10053/wp-content/uploads/2024/12/cedarchest-e1733586383484.png"
+sys.stdout.write('Exec: Script')
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Hello, I am Python!"
+
+@app.route('/describe-image', methods=['GET'])
+def describe_image():
+    try:
+     
+             # Check if an image file is provided
+        if 'image' not in request.args:
+            return jsonify({"error": "No image file provided"}), 400    
+        
+        uri = request.args.get('image')
+
+        project_id = "gen-lang-client-0011860578"
+        credentials_path = "../gemini_service_account.json"
+        
+        parsed_url = urlparse(uri)
+        if not parsed_url.path:
+            return None
+        image_filename =  parsed_url.path.split('/')[-1]  # Get the last part of the path
+
+       
+        images_dir = "downloaded"
+
+        os.makedirs(images_dir, exist_ok=True)
+
+        # Combine directory and filename
+        full_filename = os.path.join(images_dir, image_filename)
+
+        sys.stdout.write(full_filename)
+
+        urllib.request.urlretrieve(uri, full_filename)
+
+        img = Image.open(full_filename)
+
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        response = model.generate_content(["Write a short, engaging blog post based on this picture", img], stream=True)
+
+        response.resolve()
+
+        description = response.text
+
+        # Clean up the temporary image
+        os.remove(full_filename)
+
+        # Return the description
+        return jsonify({"description": description})       
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+if __name__ == '__main__':
+    app.run(debug=True)
