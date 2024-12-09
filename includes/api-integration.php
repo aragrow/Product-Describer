@@ -15,7 +15,26 @@ class GeminiProductDescriberAPIIntegration {
         return get_option('gemini_api_key');
     }
 
-    function set_prompt() {
+    function set_prompt_image() {
+        return 
+        "Given an image, perform the following steps:
+            1. Draft a Description in one paragraph:
+            Use vibrant, colorful, and descriptive language to highlight the key features and benefits of the forefront item.
+            Maintain a professional, engaging tone that resonates with a wide audience.
+            Emphasize the product's unique attributes, functionality, and value to customers.
+            Avoid describing the background of the image unless it directly complements the item.
+            2. Format the Output:
+            Write an SEO-friendly description to enhance online visibility.
+            Structure the output using basic HTML tags
+            Exclude html tags in the response.
+            Additional Considerations:
+            Write descriptions tailored to inspire trust and excitement in potential buyers.
+            Highlight why the product stands out from competitors.
+            Use natural language that feels human and relatable.
+        ";
+    }
+
+    function set_prompt_post() {
         return 
         "Given an image, perform the following steps:
             1. Draft a Description:
@@ -43,7 +62,9 @@ class GeminiProductDescriberAPIIntegration {
     }
 
 
-    function generate_image_description ( $title, $attributes, $img_uri) {
+    function generate_image_description ( $image_ID, $title, $attributes, $img_uri) {
+
+        error_log("Exec->generate_image_description()");
 
         $api_url = $this->set_apiuri();
     
@@ -55,9 +76,15 @@ class GeminiProductDescriberAPIIntegration {
                 die("API_KEY eis not set.\n");
         }
 
-        $prompt =  $this->set_prompt();
-        
-        $description = $this->call_python_script($img_uri);
+        $prompt =  $this->set_prompt_post();
+        $attachment = get_post($image_ID);
+        $image_description = $attachment->post_content;
+        if( empty($image_description)) {
+            $result = $this->call_python_script($img_uri);
+            $description = $result['awnser'];
+         }  else {
+            $description = $image_description;
+         }
 
         $apiURI = $api_url."?key=$api_key";
     
@@ -72,7 +99,7 @@ class GeminiProductDescriberAPIIntegration {
                             'text' => "$prompt,
                             Title: $title, 
                             Attibutes: $attributes
-                            Image Description: {$description['description']}"
+                            Image Description: {$description}"
                         ]
                     ]
                 ]
@@ -142,6 +169,8 @@ class GeminiProductDescriberAPIIntegration {
     }
 
     function call_python_script($uri) {
+        
+        error_log("Exec->call_python_script()");
 
         $python_api_uri = "http://127.0.0.1:5000/describe-image";
         $fullUrl = $python_api_uri . "?image=" . urlencode($uri);
@@ -174,7 +203,7 @@ class GeminiProductDescriberAPIIntegration {
         }
 
         $responseJson = json_decode($response, true);
-       
+
         return $responseJson;
     }
 
@@ -215,167 +244,5 @@ class GeminiProductDescriberAPIIntegration {
         return $base64_image;
 
     }
-
-/*****************************
- * 
- *  WIP -  UPLOAD IMAGE THEN, AND THEN USE.
- * 
- */
-
-    function upload_to_gemini($image_id) {
-
-        $api_url = $this->set_apiuri();
-    
-        // Set the API key from the environment variable
-        $api_key = getenv('GEMINI_API_KEY');
-        if (!$api_key) {
-            $api_key = $this->set_apikey();
-            if (!$api_key) 
-                die("API_KEY eis not set.\n");
-        }
-
-        $image_path = get_attached_file($image_id);
-
-        // Check if the file exists
-        if (!file_exists($image_path)) 
-            return new WP_Error('file_not_found', 'File not found: ' . $image_path);
-        
-        // Get the file extension and MIME type
-        $image_info = wp_check_filetype($image_path);
-
-        if (empty($image_info['type']))
-            return new WP_Error('invalid_file', 'Could not determine the MIME type for: ' . $image_path);
-        else 
-            $mime_type = $image_info['type'];
-        
-        // Prepare the file for upload
-        $file = curl_file_create($image_path, $mime_type, basename($image_path));
-    
-        // Prepare the payload
-        $payload = [
-            'file' => $file
-        ];
-    
-        // cURL request to upload file
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $api_url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $api_key,
-            'Content-Type: multipart/form-data'
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-        // Disable SSL verification (for local testing only)
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-
-        $response = curl_exec($ch);
-        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-    
-        // Check for errors
-        if ($status_code !== 200) {
-            return new WP_Error('upload_failed', 'File upload failed with status code ' . $status_code . ': ' . $response);
-        }
-    
-        $response_data = json_decode($response, true);
-    
-        // Ensure response is valid
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return new WP_Error('json_decode_error', 'Failed to decode response: ' . json_last_error_msg());
-        }
-    
-        return $response_data['uri']; // Assuming the API response includes a 'uri' field
-    }
-    
-    function send_to_gemini($file_uri) {
-        $api_url = $this->set_apiuri();
-    
-        // Set the API key from the environment variable
-        $api_key = getenv('GEMINI_API_KEY');
-        if (!$api_key) {
-            $api_key = $this->set_apikey();
-            if (!$api_key) 
-                die("API_KEY eis not set.\n");
-        }
-
-        $prompt =  $this->set_prompt();
-    
-        // Prepare the payload
-        $payload = [
-            'model_name' => 'gemini-1.5-flash',
-            'generation_config' => [
-                'temperature' => 1,
-                'top_p' => 0.95,
-                'top_k' => 40,
-                'max_output_tokens' => 8192,
-                'response_mime_type' => 'text/plain',
-            ],
-            'history' => [
-                [
-                    'role' => 'user',
-                    'parts' => [ $prompt . ":  " . $file_uri],
-                ],
-            ],
-        ];
-    
-        // cURL request to send generation request
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $api_url);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $api_key,
-            'Content-Type: application/json',
-        ]);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    
-        // Disable SSL verification (for local testing only)
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-
-        $response = curl_exec($ch);
-        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-    
-        // Check for errors
-        if ($status_code !== 200) {
-            return new WP_Error('api_error', 'API call failed with status code ' . $status_code . ': ' . $response);
-        }
-    
-        $response_data = json_decode($response, true);
-    
-        // Ensure response is valid
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return new WP_Error('json_decode_error', 'Failed to decode response: ' . json_last_error_msg());
-        }
-    
-        return $response_data['response_text'] ?? ''; // Adjust based on actual response structure
-    }
-    
-    // Example Usage
-    function gemini_workflow($post_id) {
-
-        $featured_image_id = get_post_thumbnail_id( $post_id );
-    
-        // Upload the file
-        $file_uri = $this->upload_to_gemini($featured_image_id);
-    
-        if (is_wp_error($file_uri)) {
-            wp_die('Error uploading file: ' . $file_uri->get_error_message());
-        }
-    
-        // Generate content based on the file
-        $response = $this->send_to_gemini($file_uri);
-    
-        if (is_wp_error($response)) {
-            wp_die('Error generating content: ' . $response->get_error_message());
-        }
-    
-        wp_die('Generated Content: <pre>' . esc_html($response) . '</pre>');
-    }
-
 
 }

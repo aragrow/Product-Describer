@@ -38,18 +38,14 @@ function gemini_enqueue_scripts($hook) {
 add_action('wp_ajax_generate_description', 'gemini_generate_description');
 function gemini_generate_description() {
     error_log(print_r($_POST,true));
-    $post_id = intval($_POST['post_id']);
+    $image_ID = intval($_POST['post_id']);
     $featured_image_uri = sanitize_text_field($_POST['image_url']);
     $title = '';
     $attributes= '';
-    $description = (new GeminiProductDescriberAPIIntegration)->generate_image_description($title, $attributes, $featured_image_uri);
+    $description = (new GeminiProductDescriberAPIIntegration)->generate_image_description($image_ID, $title, $attributes, $featured_image_uri);
 
 }
 
-
-
-?>
-<?php
 // Register the block
 add_action('init', 'register_projects_dynamic_block');
 
