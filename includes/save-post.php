@@ -10,7 +10,7 @@ class WP_Product_Describer_Save_Post {
      
         // Hook into save_post to trigger description generation when a 'product' post is saved
         add_action('add_attachment', [$this,'detect_user_add_attachment'], 10, 1);
-        add_action('save_post', [$this,'detect_user_saved_post'], 20, 3);
+        add_action('save_post', [$this,'detect_user_saved_post_products'], 20, 3);
     }
 
     // Hook to detect post save for custom post type "product"
@@ -38,8 +38,12 @@ class WP_Product_Describer_Save_Post {
 
 
     // Hook to detect post save for custom post type "product"
-    function detect_user_saved_post( $post_ID, $post, $update) {
-        error_log("Exec->detect_user_saved_post()");
+    function detect_user_saved_post_products ($post_ID, $post, $update) {
+
+        if ( 'products' != $post->post_type && $post->post_type == 'attachment'  )
+            return 
+        error_log("Exec->detect_user_saved_post_products()");
+
         // Check if the post is autosave or revision (saved by the system)
         if ( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ) {
             return;
@@ -59,7 +63,6 @@ class WP_Product_Describer_Save_Post {
         // Check if the post was saved by the user (not a system-generated save)
         if ( isset($_POST['post_author']) && $_POST['post_author'] == get_current_user_id() ) {
 
-           
             // Ensure we're working with the "product" custom post type
             if ( 'products' == $post->post_type ) {
                 error_log("post_type({$post->post_type})");
@@ -95,7 +98,7 @@ class WP_Product_Describer_Save_Post {
                     echo 'No featured image set for this post.';
                 }
 
-            } elseif ( $post->post_type == 'attachment12' ) {
+            } elseif ( $post->post_type == 'attachment' ) {
 
                 if ( trim( $post->post_excerpt ) === '' ) {
 
