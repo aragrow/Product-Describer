@@ -4,41 +4,52 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly.
 }
 
-class WP_Product_Describer_Save_Post {
+class WPProductDescriberSavePost {
 
     public function __construct() {
-     
+
         // Hook into save_post to trigger description generation when a 'product' post is saved
         add_action('add_attachment', [$this,'detect_user_add_attachment'], 10, 1);
         add_action('save_post', [$this,'detect_user_saved_post_products'], 20, 3);
+
     }
 
     // Hook to detect post save for custom post type "product"
     function detect_user_add_attachment( $post_ID ) {
-        error_log("Exec->detect_user_add_attachment()");
+
+        error_log("Exec->WPProductDescriberSavePost.detect_user_add_attachment()");
         
         $post = get_post($post_ID);
         //error_log(print_r(get_post($post),true));
         $image_uri = $post->guid;
-        $description = (new GeminiProductDescriberAPIIntegration)->call_python_script($image_uri );
-        if($description != 502) {
-            $description = sanitize_text_field( $description['description'] ); //Use appropriate sanitization based on context
+        $api_response = (new GeminiProductDescriberAPIIntegration)->call_python_image_script($image_uri);
+        error_log('Api:');
+        error_log(print_r($api_response,true));
+        error_log('Api Status:');
+        error_log($api_response['status']);
+
+        $content = $api_response['description']; // If description contains HTML
+
+        if($content != 502) {
+            $content = sanitize_text_field( $content ); //Use appropriate sanitization based on context
+           
             // Update the caption
             $attr = [
                 'ID'           => $post_ID,
-                'post_excerpt' => $description, // Captions are stored in post_excerpt for attachments
-                'post_content' => $description,   // Description
-                'meta_input' => ['_wp_attachment_image_alt' => $description,] // Alt text
+                'post_excerpt' => $content, // Captions are stored in post_excerpt for attachments
+                'post_content' => $content,   // Description
+                'meta_input' => ['_wp_attachment_image_alt' => $content,] // Alt text
             ];
                 error_log(print_r($attr,true));
                 $updated = wp_update_post( $attr );
         }
 
-    }
-
-
+    } # End function detect_user_add_attachment()
+    
     // Hook to detect post save for custom post type "product"
     function detect_user_saved_post_products ($post_ID, $post, $update) {
+
+        error_log("Exec->WPProductDescriberSavePost.detect_user_saved_post_products()");
 
         if ( 'products' != $post->post_type && $post->post_type == 'attachment'  )
             return 
@@ -65,11 +76,13 @@ class WP_Product_Describer_Save_Post {
 
             // Ensure we're working with the "product" custom post type
             if ( 'products' == $post->post_type ) {
+
                 error_log("post_type({$post->post_type})");
 
                 // Retrieve the featured image ID of the current post
                 $image_ID = get_post_thumbnail_id( $post_ID );
-                $featured_image_uri = get_the_post_thumbnail_url( $post_ID );
+                $attachment = get_post( $image_ID );
+
                 $post_title = $post->post_title;
                 $custom_fields = get_post_meta( $post_ID );
                 $attributes= '';
@@ -78,61 +91,75 @@ class WP_Product_Describer_Save_Post {
                 foreach ( $custom_fields as $key => $value ) {
                     $attributes .= $key . ':' . implode( ', ', $value ) . '\n';
                 }
-            
-                error_log("featured_image_uri: {$featured_image_uri}");
+ 
+                if ( $image_ID ) {
 
-                if ( $featured_image_uri ) {
-                    error_log('Featured image URL: ' . $featured_image_uri);
-                    $api_response = (new GeminiProductDescriberAPIIntegration)->generate_image_description($image_ID, $post_title, $attributes, $featured_image_uri );
-                    error_log('api_response: '.print_r($api_response['anwser'], true));
+                    $api_response = (new GeminiProductDescriberAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
+                    
+                    error_log('Api:');
+                    error_log(print_r($api_response,true));
+                    error_log('Api Status:');
+                    error_log($api_response['status']);
+
                     // Update the post content
+            
                     if($api_response['status']) {
-                        $description = wp_kses_post( $api_response['anwser'] ); // If description contains HTML
-                        wp_update_post( array(
+                        $answer = $api_response['description']; // If description contains HTML
+                        error_log('Api Anwser:');
+                        error_log($answer);
+
+                        $array = json_decode($answer, true);
+                        $english = $array['English'];
+
+                        // Get category IDs from names
+                        $category_ids = [];
+                        foreach ($english['Categories'] as $category_name) {
+                            $category = get_term_by('name', $category_name, 'product-category');
+                            if ($category) {
+                                $category_ids[] = $category->term_id; // Add the category ID to the array
+                            }
+                        }
+                        
+                        // Prepare the post data array
+                        $post_data = [
                             'ID'           => $post_ID,
-                            'post_content' => $description,
-                        ) );
+                            'post_content' => wp_kses_post( $english['Description'] ),
+                            'post_excerpt' => wp_kses_post( $english['Summary'] )
+                        ];
+
+                        // Update the post
+                        $updated_post_id = wp_update_post( $post_data );
+                        // Check for errors
+                        if (is_wp_error($updated_post_id)) {
+                            echo 'Error updating post: ' . $updated_post_id->get_error_message();
+                            exit();
+                        } 
+
+                        // Update the categories (terms) for the post
+                        $categories = wp_set_post_terms($post_ID, $category_ids, 'product-category');
+                        if (is_wp_error($categories)) {
+                            echo 'Error updating post categoris: ' . $categories->get_error_message();
+                            exit();
+                        } 
+
+                        $this->save_multi_language_versions ($post_ID, $array['Spanish'], 'sp');
+                        $this->save_multi_language_versions ($post_ID, $array['Italian'], 'it');
+                        $this->save_multi_language_versions ($post_ID, $array['Norwegian'], 'no');
+
                     }
 
                 } else {
+
                     echo 'No featured image set for this post.';
-                }
 
-            } elseif ( $post->post_type == 'attachment' ) {
-
-                if ( trim( $post->post_excerpt ) === '' ) {
-
-                    $image_uri = $post->GUID;
-                    $post_title = $post->post_title;
-                    $custom_fields = get_post_meta( $post_ID );
-                    $attributes= '';
+                }  # End If image_ID
             
-                    // Loop through the custom fields and display them
-                    foreach ( $custom_fields as $key => $value ) {
-                        $attributes .= $key . ':' . implode( ', ', $value ) . '\n';
-                    }
+            } # End If Product Type
 
-                    error_log('image URL: ' . $image_uri);
-                    $description = (new GeminiProductDescriberAPIIntegration)->call_python_script($image_uri );
-        
-                    if($description['status']) {
-                        $description = sanitize_text_field( $description ); //Use appropriate sanitization based on context
-                        // Update the caption
-                        $updated = wp_update_post( array(
-                            'ID'           => $post_ID,
-                            'post_excerpt' => $description, // Captions are stored in post_excerpt for attachments
-                            'post_content' => $description,   // Description
-                            'meta_input' => array(
-                                '_wp_attachment_image_alt' => $description, // Alt text
-                            ),
-                        ) );
-                    }
-                }
+        } # End If (post_author)
 
-            }
-        }
-    }
-
+    } # End function detect_user_saved_post_products()
+/*
     function get_post_featured_image_path( $post_id ) {
         // Get the post thumbnail (featured image) ID
         $featured_image_id = get_post_thumbnail_id( $post_id );
@@ -147,7 +174,8 @@ class WP_Product_Describer_Save_Post {
 
         return false; // Return false if no featured image is set
     }
-
+*/
+    /*
     function get_first_paragraph( $post_id ) {
         // Get the post content
         $post = get_post( $post_id );
@@ -162,8 +190,43 @@ class WP_Product_Describer_Save_Post {
 
         return $matches[1] ?? ''; // Return the first paragraph or an empty string
     }
+*/
 
-    
+    function save_multi_language_versions ($post_ID, $array, $language) {
+
+        error_log("Exec->WPProductDescriberSavePost.save_multi_language_versions()");
+
+/*
+        
+        $group_field_key = 'version_'.$language;
+
+        $group_value = get_field( $group_field_key, $post_ID );
+
+        
+        $description = wp_kses_post( $array['Description']);
+        $summary = wp_kses_post( $array['Summary']);
+
+        $group_value["description_{$language}"] = $description; 
+        $group_value["summary_{$language}"] = $summary; 
+
+        $group = update_field( $group_field_key, $group_value, $post_ID );
+
+        if (!$description)  {
+            // The field update failed
+            error_log("Field update failed.");
+        } else  
+        error_log(get_field("description_{$language}", $post_ID));
+        
+        error_log("summary_{$language}");
+        $summary = update_field( "summary_{$language}", wp_kses_post( $array['Summary']), $post_ID );
+        if (!$summary)  {
+            // The field update failed
+            error_log("Field update failed.");
+        } else
+        error_log(get_field("summary_{$language}", $post_ID));
+*/  
+    }
+  
 }
 
-new WP_Product_Describer_Save_Post();
+new WPProductDescriberSavePost();

@@ -19,6 +19,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/facebook-poster.php';
 require_once plugin_dir_path(__FILE__) . 'includes/save-post.php';
 //require_once plugin_dir_path(__FILE__) . 'guthenberg/top-ten/block.php';
 require_once plugin_dir_path(__FILE__) . 'includes/post-metabox.php';
+//require_once plugin_dir_path(__FILE__) . 'includes/fix-exif.php';
 
 // Register the block
 //add_action('init', 'register_projects_dynamic_block_top_10');
@@ -33,7 +34,7 @@ function gemini_enqueue_scripts($hook) {
         ]);
     }
 }
-
+/*
 // Handle AJAX request for generating descriptions
 add_action('wp_ajax_generate_description', 'gemini_generate_description');
 function gemini_generate_description() {
@@ -45,6 +46,7 @@ function gemini_generate_description() {
     $description = (new GeminiProductDescriberAPIIntegration)->generate_image_description($image_ID, $title, $attributes, $featured_image_uri);
 
 }
+*/
 
 // Register the block
 add_action('init', 'register_projects_dynamic_block');
