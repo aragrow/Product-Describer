@@ -1,0 +1,14 @@
+/* Define the rotation animation */
+@keyframes rotateIcon {
+    0% {
+        transform: rotate(0deg); /* Initial position */
+    }
+    100% {
+        transform: rotate(360deg); /* Full rotation */
+    }
+}
+
+/* Apply rotation animation to the icon when it has the 'rotate' class */
+.rotate {
+    animation: rotateIcon 1s linear infinite; /* Continuous rotation */
+}

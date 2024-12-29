@@ -1,5 +1,7 @@
 <?php
 
+use function PHPSTORM_META\elementType;
+
 if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly.
 }
@@ -10,7 +12,7 @@ class WPProductDescriberSavePost {
 
         // Hook into save_post to trigger description generation when a 'product' post is saved
         add_action('add_attachment', [$this,'detect_user_add_attachment'], 10, 1);
-        add_action('save_post', [$this,'detect_user_saved_post_products'], 20, 3);
+       //add_action('save_post', [$this,'detect_user_saved_post_products_info'], 20, 3);
 
     }
 
@@ -54,42 +56,97 @@ class WPProductDescriberSavePost {
 
     } # End function detect_user_add_attachment()
     
+
+    // Hook to detect post save for custom post type "product"
+    function detect_user_saved_post_products_info ($post_ID, $post, $update) {
+        
+        error_log("Exec->WPProductDescriberSavePost.detect_user_saved_post_products_info()");
+
+        /* When adding post, 
+            saved post is exectuted 
+            and 
+                $_POST is empty, 
+                $_GET has the post type,
+                update is blank, 
+                auto save is not defined, 
+                revision is blank,
+                post status is auto-draft */
+
+        /* When save as draft,
+            saved post is executed
+            and  $_POST is not empty, 
+                $_GET action == edit,
+                update is 1, 
+                auto save is not defined, 
+                revision is blank,
+                post status is draft */
+
+
+        error_log('Post');
+        error_log(print_r($post,true));
+
+        error_log('Update');
+        error_log(print_r($update,true));
+        
+        if ( defined('DOING_AUTOSAVE') ) {
+            error_log("Is AutoSave");
+            error_log(DOING_AUTOSAVE);
+
+        }
+
+        error_log('Revision:');
+        error_log(wp_is_post_revision( $post_ID ));
+        
+
+        error_log('POST');
+        error_log(print_r($_POST,true));
+
+        error_log('GET');
+        error_log(print_r($_GET,true));
+
+        error_log('Status:');
+        error_log($post->post_status);
+    }      
+        
+        
     // Hook to detect post save for custom post type "product"
     function detect_user_saved_post_products ($post_ID, $post, $update) {
-
+        
         error_log("Exec->WPProductDescriberSavePost.detect_user_saved_post_products()");
 
         // Update the post content
         try {
-            if ( 'products' != $post->post_type && $post->post_type == 'attachment'  )
-                return 
-            error_log("Exec->detect_user_saved_post_products()");
+
+            if ($post->post_status == 'auto-draft') {
+                error_log("Auto Draft");
+                return;   
+            }
+
+            if ( 'products' != $post->post_type) {
+                error_log("Not a product");
+                return; 
+            }
 
             // Check if the post is autosave or revision (saved by the system)
             if ( defined('DOING_AUTOSAVE') && DOING_AUTOSAVE ) {
+                error_log("Is AutoSave");
                 return;
             }
 
             // Check if the post is a revision (saved by the system)
             if ( wp_is_post_revision( $post_ID ) ) {
+                error_log("Is a Revision");
                 return;
             }
 
             
             // Prevent to execute when the post_content is not blank
-            if ( !empty($post->post_content) && $post->content != 'TEMP') {
+            if ( !empty($post->post_content)) {
+                error_log("Post Content Not Blank");
                 return;
             }
-                    
-            // Check if the post was saved by the user (not a system-generated save)
-            if ( !isset($_POST['post_author']) && $_POST['post_author'] != get_current_user_id() ) 
-                return;
 
-                // Ensure we're working with the "product" custom post type
-            if ( 'products' != $post->post_type ) 
-                return;
-
-            error_log("post_type({$post->post_type})");
+            error_log("Ok to continue with post save");
 
             // Retrieve the featured image ID of the current post
             $image_ID = get_post_thumbnail_id( $post_ID );
@@ -114,17 +171,17 @@ class WPProductDescriberSavePost {
                 error_log($api_response['status']);
                 if($api_response['status']) {
                     $answer = $api_response['description']; // If description contains HTML
-                    error_log('Api Anwser:');
-                    error_log($answer);
-                    error_log(gettype($answer));
+                    //error_log('Api Anwser:');
+                   // error_log($answer);
+                   // error_log(gettype($answer));
 
                     $jsonData = json_decode($answer, true);
                     if ($jsonData === null) {
                         error_log("Error decoding JSON!");
                         exit;
                     } 
-                    error_log('jsonData:');
-                    error_log(print_r($jsonData,true));
+                    //error_log('jsonData:');
+                    //error_log(print_r($jsonData,true));
                     
                     $english = $jsonData['English'];
               
@@ -141,37 +198,44 @@ class WPProductDescriberSavePost {
                     // Prepare the post data array
                     $post_data = [
                         'ID'           => $post_ID,
-                        'post_status'  => 'draft',
+                        'post_status'  => 'pending',
                         'post_title' => $post_title,
                         'post_name' => $post_name,
                         'post_content' => wp_kses_post( $english['Description'] ),
                         'post_excerpt' => wp_kses_post( $english['Summary'] )
                     ];
 
-                    // Update the post
                     $updated_post_id = wp_update_post( $post_data );
                     // Check for errors
                     if (is_wp_error($updated_post_id)) {
                         echo 'Error updating post: ' . $updated_post_id->get_error_message();
                         exit();
-                    } 
+                    } else {
+                        $this->save_multi_language_versions ($post_ID, $jsonData['Spanish'], 'sp');
+                        $this->save_multi_language_versions ($post_ID, $jsonData['Italian'], 'it');
+                        $this->save_multi_language_versions ($post_ID, $jsonData['Norwegian'], 'no');
+                        // Update the categories (terms) for the post
+                        $categories = wp_set_post_terms($post_ID, $category_ids, 'product-category');
+                        if (is_wp_error($categories)) {
+                            echo 'Error updating post categories: ' . $categories->get_error_message();
+                            exit();
+                        } 
+                    }
 
-                    // Update the categories (terms) for the post
-                    $categories = wp_set_post_terms($post_ID, $category_ids, 'product-category');
-                    if (is_wp_error($categories)) {
-                        echo 'Error updating post categoris: ' . $categories->get_error_message();
-                        exit();
-                    } 
+                    // Update the post
 
-                    $this->save_multi_language_versions ($post_ID, $jsonData['Spanish'], 'sp');
-                    $this->save_multi_language_versions ($post_ID, $jsonData['Italian'], 'it');
-                    $this->save_multi_language_versions ($post_ID, $jsonData['Norwegian'], 'no');
 
                 } # End If Status
 
             } else {
 
-                echo 'No featured image set for this post.';
+                $post_data = [
+                    'ID'           => $post_ID,
+                    'post_status'  => 'draft',
+                    'post_title' => $post_title
+                ];
+
+                $updated_post_id = wp_update_post( $post_data );
 
             }  # End If image_ID
         
@@ -182,71 +246,52 @@ class WPProductDescriberSavePost {
         }
 
     } # End function detect_user_saved_post_products()
-/*
-    function get_post_featured_image_path( $post_id ) {
-        // Get the post thumbnail (featured image) ID
-        $featured_image_id = get_post_thumbnail_id( $post_id );
-
-        // If the post has a featured image
-        if ( $featured_image_id ) {
-            // Get the file path of the featured image
-            $featured_image_path = get_attached_file( $featured_image_id );
-            
-            return $featured_image_path; // Return the file path
-        }
-
-        return false; // Return false if no featured image is set
-    }
-*/
-    /*
-    function get_first_paragraph( $post_id ) {
-        // Get the post content
-        $post = get_post( $post_id );
-
-        if ( ! $post || empty( $post->post_content ) ) {
-            return '';
-        }
-
-        // Extract the first paragraph using a regex
-        $content = apply_filters( 'the_content', $post->post_content ); // Apply content filters
-        preg_match( '/<p>(.*?)<\/p>/', $content, $matches );
-
-        return $matches[1] ?? ''; // Return the first paragraph or an empty string
-    }
-*/
 
     function save_multi_language_versions ($post_ID, $array, $language) {
 
         error_log("Exec->WPProductDescriberSavePost.save_multi_language_versions()");
-
+        error_log("post_ID: {$post_ID}");
         try {
         
             $group_field_key = 'version_'.$language;
-
+            error_log("group field key: {$group_field_key}");
             $group_value = get_field( $group_field_key, $post_ID );
+            error_log('Group value before');
+            error_log(print_r($group_value,true));
 
-            
             $description = wp_kses_post( $array['Description']);
             $summary = wp_kses_post( $array['Summary']);
-
-            $group_value["description_{$language}"] = $description; 
-            $group_value["summary_{$language}"] = $summary; 
-
-            $group = update_field( $group_field_key, $group_value, $post_ID );
-
+            
             if (!$description)  {
                 // The field update failed
-                error_log("Field update failed.");
-            } else  
-            error_log(get_field("description_{$language}", $post_ID));
+                error_log("description->Is Blank. Field update failed.");
+            }
             
-            error_log("summary_{$language}");
-            $summary = update_field( "summary_{$language}", wp_kses_post( $array['Summary']), $post_ID );
             if (!$summary)  {
                 // The field update failed
-                error_log("Field update failed.");
-            } else
-            error_log(get_field("summary_{$language}", $post_ID)); 
+                error_log("summary->Is Blank. Field update failed.");
+            } 
+
+            $group_value["description"] = $description; 
+            $group_value["summary"] = $summary; 
+
+            error_log('Group value after');
+            error_log(print_r($group_value,true));
+
+            $group = update_field( $group_field_key, $group_value, $post_ID );
+            if(!$group) {
+                error_log("{$group_field_key}->Group update failed.");
+                 // Check for specific issues, like invalid sub-field keys or data type mismatch
+                $sub_field_keys = array_keys($group_value);
+                foreach ($sub_field_keys as $sub_field_key) {
+                    $sub_field = get_field_object($sub_field_key, $post_ID);
+                    if (!$sub_field) {
+                        error_log("Sub-field with key '{$sub_field_key}' not found in post {$post_ID}");
+                    } else {
+                        error_log("Sub-field with key '{$sub_field_key}' found in post {$post_ID}");
+                    }
+                }
+            } 
 
         } catch (Exception $e) {
             // Handle the exception

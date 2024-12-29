@@ -168,8 +168,8 @@ class GeminiProductDescriberAPIIntegration {
             //    'attributes' => $attributes,
                 'prompt' => $this->set_prompt_post()
             ];
-            error_log('requestPayLoad:');
-            error_log(print_r($requestPayLoad,true));
+            //error_log('requestPayLoad:');
+            //error_log(print_r($requestPayLoad,true));
             // Initialize cURL
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $fullUrl); // Replace with the correct endpoint
@@ -185,9 +185,9 @@ class GeminiProductDescriberAPIIntegration {
 
             // Execute the request
             $response = curl_exec($ch);
-            error_log('------ Response --------');
-            error_log(gettype($response));
-            error_log($response);
+            //error_log('------ Response --------');
+            //error_log(gettype($response));
+            //error_log($response);
 
             $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
@@ -219,7 +219,26 @@ class GeminiProductDescriberAPIIntegration {
         }    
     }
 
-/** 
+    function process_response($response) {
+
+        error_log("Exec->GeminiProductDescriberAPIIntegration.process_product_response()");
+
+        if(isset($response['status']) && $response['status']) {
+            $answer = $response['description']; // If description contains HTML
+
+            $jsonData = json_decode($answer, true);
+            if ($jsonData === null) {
+                error_log("Error decoding JSON!");
+                return false;
+            } 
+            error_log(print_r($jsonData, true));
+            return $jsonData;
+        } else {
+            error_log("No response found!");
+            return ['error' => 'No response from API.  Please try again later'];
+        }
+    }
+/*
     function generate_image_description ( $image_ID, $title, $attributes, $img_uri) {
 
         error_log("Exec->generate_image_description()");
@@ -233,7 +252,7 @@ class GeminiProductDescriberAPIIntegration {
             if (!$api_key) 
                 die("API_KEY eis not set.\n");
         }
-       
+
         $prompt =  $this->set_prompt_image();
 
         $attachment = get_post($image_ID);
