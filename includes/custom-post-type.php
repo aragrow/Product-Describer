@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class WP_Product_Describer_Register_Post_Type{
+class WPProductCopyGeniePostType {
 
     public function __construct() {
         
@@ -72,4 +72,4 @@ class WP_Product_Describer_Register_Post_Type{
     }
 
 }
-new WP_Product_Describer_Register_Post_Type();
+new WPProductCopyGeniePostType();

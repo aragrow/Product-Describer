@@ -15,12 +15,12 @@ jQuery(document).ready(function($) {
         //console.log(gaicMetaBoxAjax.nonce);
         // Make the AJAX request
         $.ajax({
-            url: gaicMetaBoxAjax.ajaxUrl, // The admin AJAX URL
+            url: productCopyGenieMetaBoxAjax.ajaxUrl, // The admin AJAX URL
             method: 'POST',
             async: false,  // Set async to false for synchronous request
             data: {
                 action: 'generate_ai_content',          // The action hook to call
-                nonce: gaicMetaBoxAjax.nonce,      // The nonce for security
+                nonce: productCopyGenieMetaBoxAjax.nonce,      // The nonce for security
                 post_id: the_post_id,
                 post_title: the_post_title
             },

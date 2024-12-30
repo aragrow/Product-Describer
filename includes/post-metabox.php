@@ -1,10 +1,10 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class WPProductDescriberMetaBox {
+class WPProductCopyGenieMetaBox {
 
     public function __construct() {
-     
+
         // Add a custom meta box for image descriptions
         add_action('add_meta_boxes', [$this,'gaic_add_meta_box']);
 
@@ -15,10 +15,9 @@ class WPProductDescriberMetaBox {
         add_action('wp_ajax_generate_ai_content', [$this, 'generate_ai_content_callback']);
 
     }
-   
 
     function gaic_add_meta_box() {
-        error_log('Exec->WPProductDescriberMetaBox.gaic_add_meta_box()');
+        error_log('Exec->WPProductCopyGenieMetaBox.gaic_add_meta_box()');
     
         add_meta_box(
             'generate_content_meta_box',
@@ -44,44 +43,45 @@ class WPProductDescriberMetaBox {
     // Enqueue the JavaScript for handling button click
     public function enqueue_admin_scripts($hook) {
 
-        error_log('Exec->WPProductDescriberMetaBox.enqueue_admin_scripts()');
+        error_log('Exec->WPProductCopyGenieMetaBox.enqueue_admin_scripts()');
 
         // Check if we're in development mode
         if (defined('WP_DEBUG') && WP_DEBUG) {
             // In development mode, use the current date and time as the version
-            $version = date('Ymd-His'); // Format: YYYYMMDD-HHMMSS
+            $version_css = $version_js = date('Ymd-His'); // Format: YYYYMMDD-HHMMSS
         } else {
             // In production, use filemtime() for cache busting or a fixed version number
-            $style_path = GEMINIDIRURL . 'generate-ai-content-meta-box.css';
-            $script_path = GEMINIDIRURL . 'generate-ai-content-meta-box.js';
-            $version = filemtime($script_path); // Use the file's last modified timestamp
+            $style_path = PRODUCTCOPYGENIEURL . 'product-copy-genie-content-meta-box.css';
+            $script_path = PRODUCTCOPYGENIEURL . 'product-copy-genie-content-meta-box.js';
+            $version_js = filemtime($script_path); // Use the file's last modified timestamp
+            $version_css = filemtime($style_path); // Use the file's last modified timestamp
         }
 
         // Enqueue custom JavaScript for this meta box
         wp_enqueue_script(
-            'gaic-meta-box',
-            GEMINIDIRURL . 'generate-ai-content-meta-box.js', // Update with your script URL
+            'productcopy-genie-meta-box',
+            PRODUCTCOPYGENIEURL . 'product-copy-genie-content-meta-box.js', // Update with your script URL
             ['jquery'], // jQuery dependency
-            $version, // Version number,
+            $version_js, // Version number,
             true
         );
 
         // Pass the AJAX URL and a nonce to the script  
         wp_localize_script(
-            'gaic-meta-box',
-            'gaicMetaBoxAjax', // Global JS object
+            'productcopy-genie-meta-box',
+            'productCopyGenieMetaBoxAjax', // Global JS object
             [
-                'version' => $version,  // Pass the version number
+                'version' => $version_js,  // Pass the version number
                 'ajaxUrl' => admin_url('admin-ajax.php'),   // WordPress AJAX URL
                 'nonce'   => wp_create_nonce('generate_ai_content_meta_box_nonce') // Nonce for security
             ]
         );
 
         wp_enqueue_style(
-            'gaic-meta-box', // Handle for the stylesheet
-            GEMINIDIRURL . 'generate-ai-content-meta-box.css', // Path to the stylesheet
+            'productcopy-genie-meta-box', // Handle for the stylesheet
+            PRODUCTCOPYGENIEURL . 'product-copy-genie-content-meta-box.css', // Path to the stylesheet
             array(), // Dependencies (leave empty if no dependencies)
-            $version, // Version of the stylesheet
+            $version_css, // Version of the stylesheet
             'all' // Media type (can be 'all', 'screen', 'print', etc.)
         );
 
@@ -89,7 +89,7 @@ class WPProductDescriberMetaBox {
 
     function generate_ai_content_callback() {
 
-        error_log('Exec->WPProductDescriberMetaBox.generate_ai_content_callback()');
+        error_log('Exec->WPProductCopyGenieMetaBox.generate_ai_content_callback()');
 
         try {
             // Check nonce for security
@@ -120,9 +120,9 @@ class WPProductDescriberMetaBox {
             }
             $post_title = '';
 
-            $api_response = (new GeminiProductDescriberAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
+            $api_response = (new WPProductCopyGenieAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
 
-            $jsonData = (new GeminiProductDescriberAPIIntegration)->process_response($api_response);
+            $jsonData = (new WPProductCopyGenieAPIIntegration)->process_response($api_response);
 
             if (!isset($jsonData['error'])) {
                 $update = $this->udpate_post_ai_generated_content($post, $jsonData);
@@ -142,7 +142,7 @@ class WPProductDescriberMetaBox {
     }
 
     function udpate_post_ai_generated_content($post, $jsonData) {
-        error_log('Exec->WPProductDescriberMetaBox.udpate_post_ai_generated_content()');
+        error_log('Exec->WPProductCopyGenieMetaBox.udpate_post_ai_generated_content()');
         try {
 
             $english = $jsonData['English'];
@@ -200,7 +200,7 @@ class WPProductDescriberMetaBox {
 
     function save_multi_language_versions ($post_ID, $array, $language) {
 
-        error_log("Exec->WPProductDescriberMetaBox.save_multi_language_versions()");
+        error_log("Exec->WPProductCopyGenieMetaBox.save_multi_language_versions()");
         error_log("post_ID: {$post_ID}");
         try {
         
@@ -253,4 +253,4 @@ class WPProductDescriberMetaBox {
 
 }
 
-new WPProductDescriberMetaBox();
+new WPProductCopyGenieMetaBox();

@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Gemini Product Describer
+Plugin Name: ProductCopy Genie
 Description: A plugin to describe images using Google Gemini API and update post content dynamically.
 Version: 1.1
 Author: Your Name
@@ -11,7 +11,7 @@ Author: Your Name
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) exit;
-if (!defined('GEMINIDIRURL')) define('GEMINIDIRURL', plugin_dir_url(__FILE__));
+if (!defined('PRODUCTCOPYGENIEURL')) define('PRODUCTCOPYGENIEURL', plugin_dir_url(__FILE__));
 
 
 require_once plugin_dir_path(__FILE__) . 'includes/api-integration.php';
@@ -27,7 +27,7 @@ require_once plugin_dir_path(__FILE__) . 'includes/post-metabox.php';
 //add_action('init', 'register_projects_dynamic_block_top_10');
 
 // Enqueue JavaScript for AJAX functionality
-add_action('admin_enqueue_scripts', 'product_describer_enqueue_scripts');
-function product_describer_enqueue_scripts($hook) {
+add_action('admin_enqueue_scripts', 'productcopy_genie_enqueue_scripts');
+function productcopy_genie_enqueue_scripts($hook) {
     wp_enqueue_script('font-awesome', 'https://kit.fontawesome.com/3d560e6a09.js', array(), null, true);
 }

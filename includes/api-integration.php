@@ -1,7 +1,7 @@
 <?php
 if (!defined('ABSPATH')) exit;
 
-class GeminiProductDescriberAPIIntegration {
+class WPProductCopyGenieAPIIntegration {
 
     public function __construct() {
 
@@ -103,7 +103,7 @@ class GeminiProductDescriberAPIIntegration {
 
     function call_python_image_script($uri) {
         
-        error_log("Exec->GeminiProductDescriberAPIIntegration.call_python_image_script()");
+        error_log("Exec->WPProductCopyGenieAPIIntegration.call_python_image_script()");
 
         try {
 
@@ -154,7 +154,7 @@ class GeminiProductDescriberAPIIntegration {
 
     function call_python_product_script($description, $post_title, $attributes) {
         
-        error_log("Exec->GeminiProductDescriberAPIIntegration.call_python_product_script()");
+        error_log("Exec->WPProductCopyGenieAPIIntegration.call_python_product_script()");
 
         try {
 
@@ -221,7 +221,7 @@ class GeminiProductDescriberAPIIntegration {
 
     function process_response($response) {
 
-        error_log("Exec->GeminiProductDescriberAPIIntegration.process_product_response()");
+        error_log("Exec->WPProductCopyGenieAPIIntegration.process_product_response()");
 
         if(isset($response['status']) && $response['status']) {
             $answer = $response['description']; // If description contains HTML

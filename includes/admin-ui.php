@@ -3,7 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Exit if accessed directly.
 }
 
-class WP_Product_Describer_Admin_UI {
+class WPProductCopyGenieAdminUI {
 
     public function __construct() {
 
@@ -80,4 +80,4 @@ class WP_Product_Describer_Admin_UI {
 
 }
 
-new WP_Product_Describer_Admin_UI();
+new WPProductCopyGenieAdminUI();
