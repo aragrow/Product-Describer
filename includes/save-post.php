@@ -26,7 +26,7 @@ class WPProductDescriberSavePost {
             $post = get_post($post_ID);
             //error_log(print_r(get_post($post),true));
             $image_uri = $post->guid;
-            $api_response = (new GeminiProductDescriberAPIIntegration)->call_python_image_script($image_uri);
+            $api_response = (new WPProductCopyGenieAPIIntegration)->call_python_image_script($image_uri);
             error_log('Api:');
             error_log(print_r($api_response,true));
             error_log('Api Status:');
@@ -163,7 +163,7 @@ class WPProductDescriberSavePost {
 
             if ( $image_ID ) {
 
-                $api_response = (new GeminiProductDescriberAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
+                $api_response = (new WPProductCopyGenieAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
                 
                 error_log('Api:');
                 error_log(print_r($api_response,true));
@@ -184,7 +184,7 @@ class WPProductDescriberSavePost {
                     //error_log(print_r($jsonData,true));
                     
                     $english = $jsonData['English'];
-              
+
                     // Get category IDs from names
                     $category_ids = [];
                     foreach ($english['Categories'] as $category_name) {

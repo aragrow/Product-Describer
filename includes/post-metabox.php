@@ -105,6 +105,7 @@ class WPProductCopyGenieMetaBox {
             $post = get_post($post_id);
         
             $post_title = $post->post_title;
+            $post_content = $post->post_content;
 
             // Retrieve the featured image ID of the current post
             $image_id = get_post_thumbnail_id( $post_id );
@@ -118,9 +119,9 @@ class WPProductCopyGenieMetaBox {
                 if (strpos($key, 'gaic') !== 0) continue;
                 $attributes .= $key . ':' . implode( ', ', $value ) . '\n';
             }
-            $post_title = '';
+            //$post_title = '';
 
-            $api_response = (new WPProductCopyGenieAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $attributes);
+            $api_response = (new WPProductCopyGenieAPIIntegration)->call_python_product_script($attachment->post_content, $post_title, $post_content, $attributes);
 
             $jsonData = (new WPProductCopyGenieAPIIntegration)->process_response($api_response);
 
@@ -144,9 +145,18 @@ class WPProductCopyGenieMetaBox {
     function udpate_post_ai_generated_content($post, $jsonData) {
         error_log('Exec->WPProductCopyGenieMetaBox.udpate_post_ai_generated_content()');
         try {
+            error_log(print_r($jsonData, true));
+
+            if( !isset($jsonData['English']) ) {
+                error_log('[No return');
+                return;
+            }
+            error_log(print_r($jsonData['English'], true));
 
             $english = $jsonData['English'];
+            $post_content = wp_kses_post( $english['Description'] );
 
+            $post_excerpt = wp_kses_post( $english['Summary'] ); 
             // Get category IDs from names
             $category_ids = [];
             foreach ($english['Categories'] as $category_name) {
@@ -163,8 +173,8 @@ class WPProductCopyGenieMetaBox {
                 'post_status'  => 'pending',
                 'post_title' => $post_title,
                 'post_name' => $post_name,
-                'post_content' => wp_kses_post( $english['Description'] ),
-                'post_excerpt' => wp_kses_post( $english['Summary'] )
+                'post_content' => $post_content,
+                'post_excerpt' => $post_excerpt
             ];
 
             $categories = wp_set_post_terms($post->ID, $category_ids, 'product-category');

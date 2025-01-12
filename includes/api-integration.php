@@ -33,6 +33,7 @@ class WPProductCopyGenieAPIIntegration {
             Highlight why the product stands out from competitors.
             Use natural language that feels human and relatable.
             Return just the description and nothing else.
+            The Description should not include double quotes.
         ";
     }
 
@@ -46,6 +47,7 @@ class WPProductCopyGenieAPIIntegration {
                 Avoid describing the background of the image unless it directly complements the item.
                 Include Price at the end.
                 Use the array with description, and post_Title.
+                If the attribute post_content has text, put more wait on the post_content that the description.
             Summary: Also provide a summary of the description.
             Categories: Finally analize the description and provide to your best capabilities the list of categories that this items belong to. look
                 at the the list of categories included and select the a max of three categories if any fit the description, if not
@@ -69,6 +71,7 @@ class WPProductCopyGenieAPIIntegration {
                     Italian
             Output:
                 Please return a well-organized JSON structure.
+                The content of the JSON fields should not include double quotes.
             Example of Description:
                 Text
                 Features
@@ -152,7 +155,7 @@ class WPProductCopyGenieAPIIntegration {
         }
     }
 
-    function call_python_product_script($description, $post_title, $attributes) {
+    function call_python_product_script($description, $post_title, $post_content, $attributes) {
         
         error_log("Exec->WPProductCopyGenieAPIIntegration.call_python_product_script()");
 
@@ -165,6 +168,7 @@ class WPProductCopyGenieAPIIntegration {
             $requestPayLoad = [
                 'description' => $description,
                 'post_title' => $post_title,
+                'post_content' => $post_content,
             //    'attributes' => $attributes,
                 'prompt' => $this->set_prompt_post()
             ];
@@ -221,22 +225,28 @@ class WPProductCopyGenieAPIIntegration {
 
     function process_response($response) {
 
-        error_log("Exec->WPProductCopyGenieAPIIntegration.process_product_response()");
-
-        if(isset($response['status']) && $response['status']) {
-            $answer = $response['description']; // If description contains HTML
-
-            $jsonData = json_decode($answer, true);
-            if ($jsonData === null) {
-                error_log("Error decoding JSON!");
-                return false;
-            } 
-            error_log(print_r($jsonData, true));
-            return $jsonData;
-        } else {
-            error_log("No response found!");
-            return ['error' => 'No response from API.  Please try again later'];
-        }
+        error_log("Exec->WPProductCopyGenieAPIIntegration.process_response()");
+        
+        try {
+            if(isset($response['status']) && $response['status']) {
+                $answer = $response['description']; // If description contains HTML
+                error_log(print_r($answer,true));
+                $jsonData = json_decode($answer, true);
+                if ($jsonData === null) {
+                    error_log("Error decoding JSON!");
+                    return false;
+                } 
+                error_log(print_r($jsonData, true));
+                return $jsonData;
+            } else {
+                error_log("No response found!");
+                return ['error' => 'No response from API.  Please try again later'];
+            }
+        } catch (Exception $e) {
+            // Handle the exception
+            error_log("Error: " . $e->getMessage());  // Display the exception message
+            return ['error' => 'Unable to process API.  Please try again later'];
+        }   
     }
 /*
     function generate_image_description ( $image_ID, $title, $attributes, $img_uri) {
