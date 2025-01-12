@@ -34,9 +34,13 @@ class WPProductCopyGenieMetaBox {
     public function generate_content_meta_box_callback($post) {
         // Add a nonce for security
         wp_nonce_field('generate_content_nonce', 'generate_content_nonce_field');
-
+        echo '<label>What to create?</label><br /><select id="generate-ai-content-select">
+            <option value="content_translations" selected>Content and Translations</option>
+            <option value="content_only">Content Only</option>
+            <option value="translations_only">Translations Only</option>
+            </select><br/>';
         // Display the button to generate the description
-        echo '<button type="button" id="generate-ai-content-btn" data-post-id="'.esc_attr($post->ID).'" data-post-titl="'.esc_attr($post->post_title).'" class="button"><i class="fas fa-sync-alt"></i> Generate Product AI Description</button>';
+        echo '<br /><button type="button" id="generate-ai-content-btn" data-post-id="'.esc_attr($post->ID).'" data-post-titl="'.esc_attr($post->post_title).'" class="button"><i class="fas fa-sync-alt"></i> Generate Product AI Description</button>';
 
     }
 
@@ -157,6 +161,9 @@ class WPProductCopyGenieMetaBox {
             $post_content = wp_kses_post( $english['Description'] );
 
             $post_excerpt = wp_kses_post( $english['Summary'] ); 
+            // Replace <p> and </p> with wp:paragraph format
+            $post_content = $this->answer_to_guthenberg($post_content);
+
             // Get category IDs from names
             $category_ids = [];
             foreach ($english['Categories'] as $category_name) {
@@ -206,6 +213,26 @@ class WPProductCopyGenieMetaBox {
 
         }  
 
+    }
+
+    function answer_to_guthenberg($text){
+        $guthenbert = str_replace(
+            ['<p>', 
+            '</p>', 
+            '<ul>',
+            '</ul>',
+            '<li>',
+            '</li>'],
+            ['<!-- wp:paragraph --><p>', 
+            '</p><!-- /wp:paragraph -->',
+            '<!-- wp:list --><ul class="wp-block-list">',
+            '</ul><!-- /wp:list -->',
+            '<!-- wp:list-item --><li>',
+            '</li><!-- /wp:list-item -->'],
+            $text
+        );
+
+        return $guthenbert;
     }
 
     function save_multi_language_versions ($post_ID, $array, $language) {
