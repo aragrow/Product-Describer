@@ -15,6 +15,21 @@ class WPProductCopyGenieAPIIntegration {
         return get_option('gemini_api_key');
     }
 
+    function set_execute_prompt($prompt) {
+        return 
+        "{$prompt}
+        1.  Compare the image to other images to try to figure out the author and style.
+            Use vibrant, colorful, and descriptive language to highlight the key features and benefits of the forefront item.
+            Maintain a professional, engaging tone that resonates with a wide audience.
+            Emphasize the product's unique attributes, functionality, and value to customers.
+            Avoid describing the background of the image unless it directly complements the item.
+            Return only the response, no other text.
+        2. Format the Output:
+           Return a well structured responsive html responsive table with the return.
+           Include only the table content and the styles.
+        ";
+    }
+
     function set_prompt_image() {
         return 
         "Given an image, perform the following steps:
@@ -248,7 +263,67 @@ class WPProductCopyGenieAPIIntegration {
             return ['error' => 'Unable to process API.  Please try again later'];
         }   
     }
-/*
+
+    function call_python_prompt_script($uri, $post_title, $post_content, $prompt) {
+        
+        error_log("Exec->WPProductCopyGenieAPIIntegration.call_python_product_script()");
+
+        try {
+
+            $python_api_uri = "http://127.0.0.1:5000/execute-prompt";
+            $fullUrl = $python_api_uri;
+            
+            $requestPayload = [];
+            // Define the payload for the request
+            $requestPayLoad = [
+                'image' => $uri,
+                'post' => $post_content,
+                'title' => $post_title,
+            //    'attributes' => $attributes,
+                'prompt' => $this->set_execute_prompt($prompt)
+            ];
+            //error_log('requestPayLoad:');
+            //error_log(print_r($requestPayLoad,true));
+            // Initialize cURL
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $fullUrl); // Replace with the correct endpoint
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ["Content-Type: application/x-www-form-urlencoded"]);
+            //curl_setopt($ch, CURLOPT_HTTPGET, true); // Specify GET method (optional)
+            curl_setopt($ch, CURLOPT_POST, True); // Specify GET method (optional)
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($requestPayLoad));
+
+            // Disable SSL verification (for local testing only)
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+            // Execute the request
+            $response = curl_exec($ch);
+            //error_log('------ Response --------');
+            //error_log(gettype($response));
+            //error_log($response);
+
+            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+            if (curl_errno($ch)) {
+                error_log("cURL Error: " . curl_error($ch));
+                curl_close($ch);
+                return;
+            }
+
+            // Decode the JSON into an associative array
+            $responseJson = json_decode($response, true);
+
+            return $responseJson;
+
+        } catch (Exception $e) {
+            // Handle the exception
+            echo "Error: " . $e->getMessage();  // Display the exception message
+            exit;
+        }    
+    }
+
+    /*
     function generate_image_description ( $image_ID, $title, $attributes, $img_uri) {
 
         error_log("Exec->generate_image_description()");
